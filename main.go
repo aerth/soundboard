@@ -2,8 +2,11 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"log"
+	"math"
+	"math/rand"
 	"os"
 	"time"
 
@@ -16,10 +19,13 @@ import (
 	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
 	"github.com/faiface/pixel"
+	"github.com/faiface/pixel/imdraw"
 	"github.com/faiface/pixel/pixelgl"
 )
 
 var buffers = make(map[string]*beep.Buffer)
+var buttons = make(map[string]pixel.Rect)
+var sprites = make(map[string]*pixel.Sprite)
 
 func main() {
 	if err := load(); err != nil {
@@ -29,7 +35,6 @@ func main() {
 	speaker.Init(sr, sr.N(time.Second/30))
 
 	pixelgl.Run(run)
-	//	play("cow.mp3")
 }
 
 func load() error {
@@ -50,22 +55,26 @@ func load() error {
 }
 
 func play(name string) error {
-	if s, ok := buffers[name]; ok {
+	if s, ok := buffers[name+".mp3"]; ok {
 		speaker.Play(s.Streamer(0, s.Len()))
+		return nil
 	}
-	return nil
+	return fmt.Errorf("%q not found", name)
 }
 
 func run() {
-	cowpic, err := loadPicture("assets/image/cow.jpg")
-	if err != nil {
+	for i, name := range []string{"cow"} {
+		pic, err := loadPicture("assets/image/" + name + ".jpg")
+		if err != nil {
 
-		log.Fatal(err)
+			log.Fatal(err)
+		}
+		sprite := pixel.NewSprite(pic, pic.Bounds())
+		sprites[name] = sprite
+		buttons[name] = pic.Bounds().Moved(pixel.V(100*(float64(i)+1), 100*(float64(i)+1)))
 	}
-	cowsprite := pixel.NewSprite(cowpic, cowpic.Bounds())
-
 	cfg := pixelgl.WindowConfig{
-		Title:     "aerth soundboard",
+		Title:     "aerth animals",
 		Bounds:    pixel.R(0, 0, 1024, 768),
 		Resizable: true,
 		VSync:     true,
@@ -77,12 +86,21 @@ func run() {
 	last := time.Now()
 	frames := 0
 	second := time.Tick(time.Second)
-
+	debug := false
 	for !win.Closed() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
 		win.Clear(colornames.Blue)
-		cowsprite.Draw(win, pixel.IM.Scaled(pixel.ZV, 2).Moved(win.Bounds().Center()))
+		for k, sprite := range sprites {
+			sprite.Draw(win, pixel.IM.Moved(buttons[k].Center()))
+		}
+
+		if win.JustPressed(pixelgl.KeyEqual) {
+			debug = !debug
+		}
+		if debug {
+			highlightbuttons(win)
+		}
 		if win.JustPressed(pixelgl.MouseButtonLeft) {
 			button := getbutton(win.MousePosition())
 			if button != "" {
@@ -112,6 +130,35 @@ func loadPicture(path string) (pixel.Picture, error) {
 	return pixel.PictureDataFromImage(img), nil
 }
 
-func getbutton(pixel.Vec) string {
-	return "cow.mp3"
+func getbutton(v pixel.Vec) string {
+	for i, r := range buttons {
+		if r.Contains(v) {
+			return i
+		}
+	}
+	return ""
+}
+func highlightbuttons(win *pixelgl.Window) {
+	imd := imdraw.New(nil)
+
+	for _, r := range buttons {
+		imd.Color = RandomColor()
+		imd.Push(r.Min, r.Max)
+		imd.Rectangle(2)
+		imd.Draw(win)
+	}
+
+}
+
+func RandomColor() pixel.RGBA {
+
+	r := rand.Float64()
+	g := rand.Float64()
+	b := rand.Float64()
+	len := math.Sqrt(r*r + g*g + b*b)
+	//if len == 0 {
+	//	goto again
+	//}
+	return pixel.RGB(r/len, g/len, b/len)
+
 }
