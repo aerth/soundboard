@@ -38,8 +38,9 @@ func main() {
 }
 
 func load() error {
-	for _, name := range []string{"cow.mp3"} {
-		f, err := os.Open("assets/sound/" + name)
+	for name := range buttons {
+		log.Println("loading", name)
+		f, err := os.Open("assets/sound/" + name + ".mp3")
 		if err != nil {
 			return err
 		}
@@ -55,7 +56,7 @@ func load() error {
 }
 
 func play(name string) error {
-	if s, ok := buffers[name+".mp3"]; ok {
+	if s, ok := buffers[name]; ok {
 		speaker.Play(s.Streamer(0, s.Len()))
 		return nil
 	}
@@ -63,15 +64,32 @@ func play(name string) error {
 }
 
 func run() {
-	for i, name := range []string{"cow"} {
+	for i, name := range []string{"cow", "horse", "chicken", "sheep"} {
 		pic, err := loadPicture("assets/image/" + name + ".jpg")
 		if err != nil {
-
-			log.Fatal(err)
+			log.Println(err)
+			continue
 		}
 		sprite := pixel.NewSprite(pic, pic.Bounds())
 		sprites[name] = sprite
-		buttons[name] = pic.Bounds().Moved(pixel.V(100*(float64(i)+1), 100*(float64(i)+1)))
+		x := 100
+		switch {
+		case i%4 == 0:
+			x = 400
+		case i%3 == 0:
+			x = 300
+		case i%2 == 0:
+			x = 200
+		default:
+			x = 100
+		}
+		buttons[name] = pic.Bounds().Moved(pixel.V(float64(x), 200*(float64(i)+1)))
+	}
+	for i := range buttons {
+		log.Println(i, buttons[i])
+	}
+	if err := load(); err != nil {
+		log.Fatal("loading error:", err)
 	}
 	cfg := pixelgl.WindowConfig{
 		Title:     "aerth animals",
@@ -104,7 +122,9 @@ func run() {
 		if win.JustPressed(pixelgl.MouseButtonLeft) {
 			button := getbutton(win.MousePosition())
 			if button != "" {
-				play(button)
+				if err := play(button); err != nil {
+					log.Println(err)
+				}
 			}
 		}
 		win.Update()
