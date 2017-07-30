@@ -57,6 +57,7 @@ func load() error {
 
 func play(name string) error {
 	if s, ok := buffers[name]; ok {
+		log.Printf("The %s goes ____", name)
 		speaker.Play(s.Streamer(0, s.Len()))
 		return nil
 	}
@@ -64,7 +65,7 @@ func play(name string) error {
 }
 
 func run() {
-	for i, name := range []string{"cow", "horse", "chicken", "sheep"} {
+	for i, name := range []string{"cow", "horse", "chicken", "sheep", "cat", "dog"} {
 		pic, err := loadPicture("assets/image/" + name + ".jpg")
 		if err != nil {
 			log.Println(err)
@@ -72,18 +73,15 @@ func run() {
 		}
 		sprite := pixel.NewSprite(pic, pic.Bounds())
 		sprites[name] = sprite
-		x := 100
-		switch {
-		case i%4 == 0:
-			x = 400
-		case i%3 == 0:
-			x = 300
-		case i%2 == 0:
-			x = 200
-		default:
-			x = 100
+		x := 100.0
+		y := -200 + pic.Bounds().Max.Y*(float64(i)+1)
+		if i > 2 {
+			x = 420
+			y = -200 + pic.Bounds().Max.Y*(float64(i)+1) - (pic.Bounds().Max.Y * 3)
 		}
-		buttons[name] = pic.Bounds().Moved(pixel.V(float64(x), 200*(float64(i)+1)))
+
+		buttons[name] = pic.Bounds().Moved(pixel.V(float64(x), y))
+
 	}
 	for i := range buttons {
 		log.Println(i, buttons[i])
@@ -93,7 +91,7 @@ func run() {
 	}
 	cfg := pixelgl.WindowConfig{
 		Title:     "aerth animals",
-		Bounds:    pixel.R(0, 0, 1024, 768),
+		Bounds:    pixel.R(0, 0, 800, 600),
 		Resizable: true,
 		VSync:     true,
 	}
@@ -132,7 +130,7 @@ func run() {
 		select {
 		default:
 		case <-second:
-			log.Println(frames, dt)
+			win.SetTitle(fmt.Sprintf("aerth animals [ fps: %v | delta: %v ]", frames, dt))
 			frames = 0
 		}
 	}
