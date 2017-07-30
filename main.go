@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"image"
 	"log"
 	"os"
@@ -100,12 +101,11 @@ func run() {
 }
 
 func loadPicture(path string) (pixel.Picture, error) {
-	file, err := os.Open(path)
+	file, err := Asset(path)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-	img, _, err := image.Decode(file)
+	img, _, err := image.Decode(bytes.NewReader(file))
 	if err != nil {
 		return nil, err
 	}

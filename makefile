@@ -1,0 +1,3 @@
+all:
+	go-bindata -o assets.go assets/...
+	go build -o soundboard
