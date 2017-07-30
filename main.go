@@ -23,9 +23,13 @@ import (
 	"github.com/faiface/pixel/pixelgl"
 )
 
-var buffers = make(map[string]*beep.Buffer)
-var buttons = make(map[string]pixel.Rect)
-var sprites = make(map[string]*pixel.Sprite)
+var animals = make(map[string]animal)
+
+type animal struct {
+	buffer *beep.Buffer
+	rect   pixel.Rect
+	sprite *pixel.Sprite
+}
 
 func main() {
 	if err := load(); err != nil {
@@ -33,20 +37,21 @@ func main() {
 	}
 	sr := beep.SampleRate(41000)
 	speaker.Init(sr, sr.N(time.Second/30))
-
 	pixelgl.Run(run)
+
 }
 
 func load() error {
 	// create animal buttons
 	for i, name := range []string{"cow", "horse", "chicken", "sheep", "cat", "dog"} {
+		log.Println("loading", name)
 		pic, err := loadPicture("assets/image/" + name + ".jpg")
 		if err != nil {
-			log.Println(err)
-			continue
+			return err
 		}
-		sprite := pixel.NewSprite(pic, pic.Bounds())
-		sprites[name] = sprite
+		var a animal
+		a.sprite = pixel.NewSprite(pic, pic.Bounds())
+
 		x := 100.0
 		y := -200 + pic.Bounds().Max.Y*(float64(i)+1)
 		if i > 2 {
@@ -54,17 +59,7 @@ func load() error {
 			y = -200 + pic.Bounds().Max.Y*(float64(i)+1) - (pic.Bounds().Max.Y * 3)
 		}
 
-		buttons[name] = pic.Bounds().Moved(pixel.V(float64(x), y))
-
-	}
-
-	if len(buttons) == 0 {
-		return fmt.Errorf("no animals found")
-	}
-
-	// load sounds
-	for name := range buttons {
-		log.Println("loading", name)
+		a.rect = pic.Bounds().Moved(pixel.V(float64(x), y))
 		f, err := os.Open("assets/sound/" + name + ".mp3")
 		if err != nil {
 			return err
@@ -75,15 +70,21 @@ func load() error {
 		}
 		buf := beep.NewBuffer(format)
 		buf.Append(s)
-		buffers[name] = buf
+		a.buffer = buf
+		animals[name] = a
 	}
+
+	if len(animals) == 0 {
+		return fmt.Errorf("no animals found")
+	}
+
 	return nil
 }
 
 func play(name string) error {
-	if s, ok := buffers[name]; ok {
+	if animal, ok := animals[name]; ok {
 		log.Printf("The %s goes ____", name)
-		speaker.Play(s.Streamer(0, s.Len()))
+		speaker.Play(animal.buffer.Streamer(0, animal.buffer.Len()))
 		return nil
 	}
 	return fmt.Errorf("%q not found", name)
@@ -112,8 +113,8 @@ func run() {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
 		win.Clear(colornames.Black)
-		for k, sprite := range sprites {
-			sprite.Draw(win, pixel.IM.Moved(buttons[k].Center()))
+		for _, animal := range animals {
+			animal.sprite.Draw(win, pixel.IM.Moved(animal.rect.Center()))
 		}
 
 		if win.JustPressed(pixelgl.KeyEqual) {
@@ -148,6 +149,7 @@ func run() {
 			frames = 0
 		}
 	}
+
 }
 
 func loadPicture(path string) (pixel.Picture, error) {
@@ -163,9 +165,9 @@ func loadPicture(path string) (pixel.Picture, error) {
 }
 
 func getbutton(v pixel.Vec) string {
-	for i, r := range buttons {
-		if r.Contains(v) {
-			return i
+	for name, a := range animals {
+		if a.rect.Contains(v) {
+			return name
 		}
 	}
 	return ""
@@ -173,7 +175,8 @@ func getbutton(v pixel.Vec) string {
 func highlightbuttons(win *pixelgl.Window) {
 	imd := imdraw.New(nil)
 
-	for _, r := range buttons {
+	for _, animal := range animals {
+		r := animal.rect
 		imd.Color = RandomColor()
 		imd.Push(r.Min, r.Max)
 		imd.Rectangle(2)
