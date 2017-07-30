@@ -38,6 +38,31 @@ func main() {
 }
 
 func load() error {
+	// create animal buttons
+	for i, name := range []string{"cow", "horse", "chicken", "sheep", "cat", "dog"} {
+		pic, err := loadPicture("assets/image/" + name + ".jpg")
+		if err != nil {
+			log.Println(err)
+			continue
+		}
+		sprite := pixel.NewSprite(pic, pic.Bounds())
+		sprites[name] = sprite
+		x := 100.0
+		y := -200 + pic.Bounds().Max.Y*(float64(i)+1)
+		if i > 2 {
+			x = 420
+			y = -200 + pic.Bounds().Max.Y*(float64(i)+1) - (pic.Bounds().Max.Y * 3)
+		}
+
+		buttons[name] = pic.Bounds().Moved(pixel.V(float64(x), y))
+
+	}
+
+	if len(buttons) == 0 {
+		return fmt.Errorf("no animals found")
+	}
+
+	// load sounds
 	for name := range buttons {
 		log.Println("loading", name)
 		f, err := os.Open("assets/sound/" + name + ".mp3")
@@ -65,48 +90,28 @@ func play(name string) error {
 }
 
 func run() {
-	for i, name := range []string{"cow", "horse", "chicken", "sheep", "cat", "dog"} {
-		pic, err := loadPicture("assets/image/" + name + ".jpg")
-		if err != nil {
-			log.Println(err)
-			continue
-		}
-		sprite := pixel.NewSprite(pic, pic.Bounds())
-		sprites[name] = sprite
-		x := 100.0
-		y := -200 + pic.Bounds().Max.Y*(float64(i)+1)
-		if i > 2 {
-			x = 420
-			y = -200 + pic.Bounds().Max.Y*(float64(i)+1) - (pic.Bounds().Max.Y * 3)
-		}
 
-		buttons[name] = pic.Bounds().Moved(pixel.V(float64(x), y))
-
-	}
-	for i := range buttons {
-		log.Println(i, buttons[i])
-	}
-	if err := load(); err != nil {
-		log.Fatal("loading error:", err)
-	}
+	// create window
 	cfg := pixelgl.WindowConfig{
 		Title:     "aerth animals",
 		Bounds:    pixel.R(0, 0, 800, 600),
-		Resizable: true,
+		Resizable: false,
 		VSync:     true,
 	}
 	win, err := pixelgl.NewWindow(cfg)
 	if err != nil {
 		panic(err)
 	}
+
 	last := time.Now()
 	frames := 0
 	second := time.Tick(time.Second)
-	debug := false
-	for !win.Closed() {
+	debug := false // toggle debug with '='
+	fs := false    // toggle fullscreen with 'f'
+	for !win.Closed() && !win.JustPressed(pixelgl.KeyEscape) {
 		dt := time.Since(last).Seconds()
 		last = time.Now()
-		win.Clear(colornames.Blue)
+		win.Clear(colornames.Black)
 		for k, sprite := range sprites {
 			sprite.Draw(win, pixel.IM.Moved(buttons[k].Center()))
 		}
@@ -116,6 +121,15 @@ func run() {
 		}
 		if debug {
 			highlightbuttons(win)
+		}
+		if win.JustPressed(pixelgl.KeyF) {
+			fs = !fs
+			if fs {
+				win.SetMonitor(pixelgl.PrimaryMonitor())
+			} else {
+				win.SetMonitor(nil)
+			}
+
 		}
 		if win.JustPressed(pixelgl.MouseButtonLeft) {
 			button := getbutton(win.MousePosition())
